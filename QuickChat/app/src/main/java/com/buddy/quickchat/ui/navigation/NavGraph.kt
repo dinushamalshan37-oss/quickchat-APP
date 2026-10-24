@@ -52,10 +52,8 @@ fun QuickChatNavGraph(
             )
         }
 
-        composable(Routes.Chat.route) { backStackEntry ->
-            val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
+        composable(Routes.Chat.route) {
             ChatScreen(
-                chatId = chatId,
                 onBack = { navController.popBackStack() }
             )
         }

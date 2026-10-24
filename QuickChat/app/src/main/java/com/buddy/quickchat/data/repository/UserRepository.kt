@@ -4,6 +4,9 @@ import com.buddy.quickchat.domain.model.Friend
 import com.buddy.quickchat.domain.model.User
 import com.buddy.quickchat.util.UiState
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
@@ -34,6 +37,19 @@ class UserRepository @Inject constructor(
         } catch (e: Exception) {
             UiState.Error(e.message ?: "Failed to fetch user")
         }
+    }
+
+    fun getUserFlow(uid: String): Flow<User?> = callbackFlow {
+        val listener = usersRef.document(uid).addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                trySend(snapshot.toObject(User::class.java))
+            }
+        }
+        awaitClose { listener.remove() }
     }
 
     suspend fun addFriend(currentUid: String, friendUid: String): UiState<Unit> {
@@ -67,6 +83,18 @@ class UserRepository @Inject constructor(
             UiState.Success(Unit)
         } catch (e: Exception) {
             UiState.Error(e.message ?: "Failed to add friend")
+        }
+    }
+
+    suspend fun updatePresence(uid: String, isOnline: Boolean) {
+        val updateData = mapOf(
+            "isOnline" to isOnline,
+            "lastSeen" to if (isOnline) 0L else System.currentTimeMillis()
+        )
+        try {
+            usersRef.document(uid).update(updateData).await()
+        } catch (e: Exception) {
+            // Ignored or logged
         }
     }
 }
